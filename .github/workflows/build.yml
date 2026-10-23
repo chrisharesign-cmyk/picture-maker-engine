@@ -1,0 +1,37 @@
+name: Build engine
+# Run by hand (Actions tab > Build engine > Run workflow) when the image server gets an update you want.
+on:
+  workflow_dispatch:
+    inputs:
+      server_ref:
+        description: Image server branch, tag or commit to build for
+        default: main
+  push:
+    branches: [main]
+    paths: [build.sh, .github/workflows/build.yml]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    container: nvidia/cuda:12.8.1-devel-ubuntu22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the engine
+        env:
+          SERVER_REF: ${{ github.event.inputs.server_ref || 'main' }}
+        run: bash build.sh
+      - name: Publish it as the latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Engine ${{ env.SDCPP_REF }} for image server ${{ env.SERVER_SHA }}
+          body: |
+            stable-diffusion.cpp ${{ env.SDCPP_REF }} with the image server's patches, built with CUDA 12.8.1 on Ubuntu 22.04
+            for RunPod's runpod/pytorch:2.8.0-py3.11-cuda12.8.1 image. Matches image server commit ${{ env.SERVER_SHA }}.
+            Picture Maker's pods download engine.tar.gz and engine.json from the latest release.
+          make_latest: true
+          files: |
+            engine.tar.gz
+            engine.json
