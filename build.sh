@@ -2,7 +2,12 @@
 # Builds the stable-diffusion.cpp engine exactly as Picture Maker's pods used to build it on the network volume,
 # then packs it for a GitHub release. Runs inside nvidia/cuda:12.8.1-devel-ubuntu22.04, which matches the pods'
 # image (runpod/pytorch, CUDA 12.8.1 on Ubuntu 22.04), so the engine runs there unchanged.
-set -euo pipefail
+set -eEuo pipefail
+# On failure, put the failing command and the last lines of output into a GitHub annotation,
+# which shows on the run's page (and can be read without downloading the full log).
+LOG=$(mktemp)
+exec > >(tee -a "$LOG") 2>&1
+trap 'rc=$?; msg=$(tail -n 15 "$LOG" | tr "\n" "|" | cut -c1-3000); echo "::error::Failed (exit $rc) at line $LINENO: $BASH_COMMAND || $msg"' ERR
 SERVER_REPO=https://github.com/hypersniper05/MCP-Image-Generator-Uncensored
 SERVER_REF=${SERVER_REF:-main}
 # 86 = A40, A6000, A5000, RTX 3090.  89 = RTX 4090, L40S, L40, RTX 6000 Ada.
