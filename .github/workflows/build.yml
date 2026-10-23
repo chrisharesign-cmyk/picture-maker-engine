@@ -17,21 +17,22 @@ jobs:
     timeout-minutes: 240
     container: nvidia/cuda:12.8.1-devel-ubuntu22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Build the engine
         env:
           SERVER_REF: ${{ github.event.inputs.server_ref || 'main' }}
         run: bash build.sh
       - name: Publish it as the latest release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
           tag_name: ${{ env.TAG }}
           name: Engine ${{ env.SDCPP_REF }} for image server ${{ env.SERVER_SHA }}
           body: |
             stable-diffusion.cpp ${{ env.SDCPP_REF }} with the image server's patches, built with CUDA 12.8.1 on Ubuntu 22.04
             for RunPod's runpod/pytorch:2.8.0-py3.11-cuda12.8.1 image. Matches image server commit ${{ env.SERVER_SHA }}.
-            Picture Maker's pods download engine.tar.gz and engine.json from the latest release.
+            Picture Maker pins one release by name and checks engine.tar.gz against its SHA-256 before running it.
           make_latest: true
           files: |
             engine.tar.gz
             engine.json
+            engine.sha256

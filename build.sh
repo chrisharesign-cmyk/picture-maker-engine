@@ -43,6 +43,7 @@ print(json.dumps({"server_sha": sys.argv[1], "sdcpp_ref": sys.argv[2], "cuda_arc
                   "cuda": "12.8.1", "ubuntu": "22.04", "built": time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())}))
 PY
 tar -C out -czf ../engine.tar.gz sdcpp
+sha256sum ../engine.tar.gz | cut -d" " -f1 > ../engine.sha256
 cp out/engine.json ../engine.json
 cd .. && ls -l engine.tar.gz engine.json && cat engine.json
-{ echo "TAG=engine-${SDCPP_REF}-${SERVER_SHA:0:7}"; echo "SDCPP_REF=$SDCPP_REF"; echo "SERVER_SHA=$SERVER_SHA"; } >> "${GITHUB_ENV:-/dev/null}"
+{ echo "TAG=engine-${SDCPP_REF}-${SERVER_SHA:0:7}-r${GITHUB_RUN_NUMBER:-0}"; echo "SDCPP_REF=$SDCPP_REF"; echo "SERVER_SHA=$SERVER_SHA"; } >> "${GITHUB_ENV:-/dev/null}"
