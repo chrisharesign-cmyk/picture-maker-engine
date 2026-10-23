@@ -24,7 +24,7 @@ SDCPP_REF=$(sed -n 's/^ARG SDCPP_REF=//p' app/Dockerfile)
 echo "image server $SERVER_SHA, engine $SDCPP_REF"
 
 git clone -q --depth 1 --branch "$SDCPP_REF" --recursive --shallow-submodules https://github.com/leejet/stable-diffusion.cpp src
-for p in app/docker/patches/*.patch; do git -C src apply "$p"; done
+for p in "$PWD"/app/docker/patches/*.patch; do git -C src apply "$p"; done
 cmake -S src -B src/build -DCMAKE_BUILD_TYPE=Release \
   -DSD_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS" -DGGML_CUDA_NCCL=OFF \
   -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON \
