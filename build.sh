@@ -3,6 +3,7 @@
 # then packs it for a GitHub release. Runs inside nvidia/cuda:12.8.1-devel-ubuntu22.04, which matches the pods'
 # image (runpod/pytorch, CUDA 12.8.1 on Ubuntu 22.04), so the engine runs there unchanged.
 set -eEuo pipefail
+HERE=$(cd "$(dirname "$0")" && pwd)   # this repo, for Picture Maker's own patches in patches/
 # On failure, put the failing command and the last lines of output into a GitHub annotation,
 # which shows on the run's page (and can be read without downloading the full log).
 LOG=$(mktemp)
@@ -25,6 +26,8 @@ echo "image server $SERVER_SHA, engine $SDCPP_REF"
 
 git clone -q --depth 1 --branch "$SDCPP_REF" --recursive --shallow-submodules https://github.com/leejet/stable-diffusion.cpp src
 for p in "$PWD"/app/docker/patches/*.patch; do git -C src apply "$p"; done
+# Picture Maker's own patches, after the image server's (e.g. forgetting a finished job once its picture is saved)
+for p in "$HERE"/patches/*.patch; do if [ -e "$p" ]; then git -C src apply "$p"; fi; done
 cmake -S src -B src/build -DCMAKE_BUILD_TYPE=Release \
   -DSD_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS" -DGGML_CUDA_NCCL=OFF \
   -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON \
@@ -36,6 +39,7 @@ cmake --build src/build --config Release -j "$(nproc)"
 mkdir -p out/sdcpp
 cp -a src/build/bin/. out/sdcpp/ && rm -f out/sdcpp/*.a
 (cd app/docker/patches && ls -1 *.patch | sed 's/[.]patch$//') > out/sdcpp/MCP_PATCHES
+(cd "$HERE/patches" 2>/dev/null && ls -1 *.patch 2>/dev/null | sed 's/[.]patch$//') >> out/sdcpp/MCP_PATCHES || true
 test -x out/sdcpp/sd-server
 python3 - "$SERVER_SHA" "$SDCPP_REF" "$CUDA_ARCHS" > out/engine.json <<'PY'
 import json, sys, time
@@ -46,4 +50,4 @@ tar -C out -czf ../engine.tar.gz sdcpp
 sha256sum ../engine.tar.gz | cut -d" " -f1 > ../engine.sha256
 cp out/engine.json ../engine.json
 cd .. && ls -l engine.tar.gz engine.json && cat engine.json
-{ echo "TAG=engine-${SDCPP_REF}-${SERVER_SHA:0:7}-r${GITHUB_RUN_NUMBER:-0}"; echo "SDCPP_REF=$SDCPP_REF"; echo "SERVER_SHA=$SERVER_SHA"; } >> "${GITHUB_ENV:-/dev/null}"
+{ echo "TAG=engine-${SDCPP_REF}-${SERVER_SHA:0:7}-r${GITHUB_RUN_NUMBER:-0}${TAG_SUFFIX:-}"; echo "SDCPP_REF=$SDCPP_REF"; echo "SERVER_SHA=$SERVER_SHA"; } >> "${GITHUB_ENV:-/dev/null}"

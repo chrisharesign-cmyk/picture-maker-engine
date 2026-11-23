@@ -1,0 +1,40 @@
+diff --git a/examples/server/routes_sdcpp.cpp b/examples/server/routes_sdcpp.cpp
+index b8767b6..919563e 100644
+--- a/examples/server/routes_sdcpp.cpp
++++ b/examples/server/routes_sdcpp.cpp
+@@ -772,6 +772,35 @@ void register_sdcpp_api_endpoints(httplib::Server& svr, ServerRuntime& rt) {
+         res.set_content(make_async_job_json(manager, *it->second).dump(), "application/json");
+     });
+ 
++    // Picture Maker: forget a finished job as soon as the picture has been saved elsewhere, so the picture
++    // doesn't stay in memory until the 10-minute clean-up. Queued or generating jobs are left alone.
++    svr.Post(R"(/sdcpp/v1/jobs/([A-Za-z0-9_\-]+)/forget)", [runtime](const httplib::Request& req, httplib::Response& res) {
++        AsyncJobManager& manager = *runtime->async_job_manager;
++        std::lock_guard<std::mutex> lock(manager.mutex);
++
++        std::string job_id = req.matches[1];
++        auto it            = manager.jobs.find(job_id);
++        if (it == manager.jobs.end()) {
++            res.status = 404;
++            res.set_content(R"({"error":"job not found"})", "application/json");
++            return;
++        }
++        auto& job = *it->second;
++        if (job.status == AsyncJobStatus::Queued || job.status == AsyncJobStatus::Generating) {
++            res.status = 409;
++            res.set_content(R"({"error":"job is not finished"})", "application/json");
++            return;
++        }
++        job.result_images_b64.clear();
++        job.result_images_b64.shrink_to_fit();
++        job.result_media_b64.clear();
++        job.result_media_b64.shrink_to_fit();
++        manager.expired_jobs[job_id] = unix_timestamp_now() + 60;
++        manager.jobs.erase(it);
++        res.status = 200;
++        res.set_content(R"({"forgotten":true})", "application/json");
++    });
++
+     svr.Post(R"(/sdcpp/v1/jobs/([A-Za-z0-9_\-]+)/cancel)", [runtime](const httplib::Request& req, httplib::Response& res) {
+         AsyncJobManager& manager = *runtime->async_job_manager;
+         std::lock_guard<std::mutex> lock(manager.mutex);

@@ -5,7 +5,7 @@ on:
     inputs:
       server_ref:
         description: Image server branch, tag or commit to build for
-        default: main
+        default: 013e08a20553cec24c408735c820759932a5fbe8
   push:
     branches: [main]
     paths: [build.sh, .github/workflows/build.yml]
@@ -20,18 +20,19 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Build the engine
         env:
-          SERVER_REF: ${{ github.event.inputs.server_ref || 'main' }}
+          SERVER_REF: ${{ github.event.inputs.server_ref || '013e08a20553cec24c408735c820759932a5fbe8' }}
+          TAG_SUFFIX: -forget-test
         run: bash build.sh
       - name: Publish it as the latest release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
           tag_name: ${{ env.TAG }}
-          name: Engine ${{ env.SDCPP_REF }} for image server ${{ env.SERVER_SHA }}
+          name: TEST engine ${{ env.SDCPP_REF }} for image server ${{ env.SERVER_SHA }}, with forget-job
           body: |
             stable-diffusion.cpp ${{ env.SDCPP_REF }} with the image server's patches, built with CUDA 12.8.1 on Ubuntu 22.04
             for RunPod's runpod/pytorch:2.8.0-py3.11-cuda12.8.1 image. Matches image server commit ${{ env.SERVER_SHA }}.
             Picture Maker pins one release by name and checks engine.tar.gz against its SHA-256 before running it.
-          make_latest: true
+          make_latest: false   # a test build: the pinned release stays as it is
           files: |
             engine.tar.gz
             engine.json
