@@ -16,6 +16,7 @@ CUDA_ARCHS=${CUDA_ARCHS:-86-real;89-real}
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq && apt-get install -y -qq --no-install-recommends git cmake build-essential ca-certificates python3 >/dev/null
 
+REPO_DIR=$PWD
 rm -rf work && mkdir work && cd work
 git clone -q "$SERVER_REPO" app
 git -C app checkout -q "$SERVER_REF"
@@ -25,6 +26,8 @@ echo "image server $SERVER_SHA, engine $SDCPP_REF"
 
 git clone -q --depth 1 --branch "$SDCPP_REF" --recursive --shallow-submodules https://github.com/leejet/stable-diffusion.cpp src
 for p in "$PWD"/app/docker/patches/*.patch; do git -C src apply "$p"; done
+# Picture Maker's own addition: lets the app tell the engine to forget a finished picture and its description.
+git -C src apply "$REPO_DIR/delete-job.patch"
 cmake -S src -B src/build -DCMAKE_BUILD_TYPE=Release \
   -DSD_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS" -DGGML_CUDA_NCCL=OFF \
   -DGGML_NATIVE=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON \

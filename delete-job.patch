@@ -1,0 +1,34 @@
+diff --git a/examples/server/routes_sdcpp.cpp b/examples/server/routes_sdcpp.cpp
+index b8767b6..2a232e5 100644
+--- a/examples/server/routes_sdcpp.cpp
++++ b/examples/server/routes_sdcpp.cpp
+@@ -772,6 +772,29 @@ void register_sdcpp_api_endpoints(httplib::Server& svr, ServerRuntime& rt) {
+         res.set_content(make_async_job_json(manager, *it->second).dump(), "application/json");
+     });
+ 
++    // Picture Maker: once the caller has its picture it asks for the job to be forgotten, so the
++    // description and the picture do not stay in memory until the retention time ends.
++    svr.Delete(R"(/sdcpp/v1/jobs/([A-Za-z0-9_\-]+))", [runtime](const httplib::Request& req, httplib::Response& res) {
++        AsyncJobManager& manager = *runtime->async_job_manager;
++        std::lock_guard<std::mutex> lock(manager.mutex);
++
++        std::string job_id = req.matches[1];
++        auto it            = manager.jobs.find(job_id);
++        if (it == manager.jobs.end()) {
++            res.status = 404;
++            res.set_content(R"({"error":"job not found"})", "application/json");
++            return;
++        }
++        if (it->second->status == AsyncJobStatus::Queued || it->second->status == AsyncJobStatus::Generating) {
++            res.status = 409;
++            res.set_content(R"({"error":"job has not finished"})", "application/json");
++            return;
++        }
++        manager.jobs.erase(it);
++        res.status = 200;
++        res.set_content(R"({"deleted":true})", "application/json");
++    });
++
+     svr.Post(R"(/sdcpp/v1/jobs/([A-Za-z0-9_\-]+)/cancel)", [runtime](const httplib::Request& req, httplib::Response& res) {
+         AsyncJobManager& manager = *runtime->async_job_manager;
+         std::lock_guard<std::mutex> lock(manager.mutex);

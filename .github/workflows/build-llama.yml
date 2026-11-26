@@ -1,0 +1,30 @@
+name: Build describer
+# Builds llama-server, the program a pod uses to describe pictures. Run by hand (Actions tab > Build describer > Run workflow).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [build-llama.sh, .github/workflows/build-llama.yml]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    container: nvidia/cuda:12.8.1-devel-ubuntu22.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: Build llama-server
+        run: bash build-llama.sh
+      - name: Publish it as a release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Describer llama.cpp ${{ env.LLAMA_REF }}
+          body: |
+            llama.cpp ${{ env.LLAMA_REF }} (${{ env.LLAMA_SHA }}): llama-server built with CUDA 12.8.1 on Ubuntu 22.04
+            for RunPod's runpod/pytorch:2.8.0-py3.11-cuda12.8.1 image. Picture Maker pins one release by name and checks llama.tar.gz against its SHA-256.
+          make_latest: false
+          files: |
+            llama.tar.gz
+            llama.sha256
